@@ -26,10 +26,9 @@ public class BatchLearningApplication {
 
     @Bean
     public Job createJob() {
-        Job packageJob = jobBuilderFactory.get("packageJob")
+        return jobBuilderFactory.get("packageJob")
                 .start(packageStep())
                 .build();
-        return packageJob;
     }
 
     @Bean
@@ -37,8 +36,10 @@ public class BatchLearningApplication {
         return stepBuilderFactory.get("packageStep")
                 .tasklet(new Tasklet() {
                     @Override
-                    public RepeatStatus execute(StepContribution stepContribution, ChunkContext chunkContext) throws Exception {
-                        System.out.println("Running a test step from tasklet");
+                    public RepeatStatus execute(StepContribution stepContribution, ChunkContext chunkContext) {
+                        String item = chunkContext.getStepContext().getJobParameters().get("item").toString();
+                        String date = chunkContext.getStepContext().getJobParameters().get("package_date").toString();
+                        System.out.printf("Item %s was packed at date : %s%n", item, date);
                         return RepeatStatus.FINISHED;
                     }
                 }).build();
