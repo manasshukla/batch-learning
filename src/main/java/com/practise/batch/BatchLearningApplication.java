@@ -14,6 +14,8 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 
+import java.util.Date;
+
 @SpringBootApplication
 @EnableBatchProcessing
 public class BatchLearningApplication {
@@ -28,6 +30,8 @@ public class BatchLearningApplication {
     public Job createJob() {
         return jobBuilderFactory.get("packageJob")
                 .start(packageStep())
+                .next(driveToAddress())
+                .next(deliverToCustomer())
                 .build();
     }
 
@@ -45,6 +49,29 @@ public class BatchLearningApplication {
                 }).build();
     }
 
+    @Bean
+    public Step driveToAddress() {
+        return stepBuilderFactory.get("driveToAddressStep")
+                .tasklet(new Tasklet() {
+                    @Override
+                    public RepeatStatus execute(StepContribution stepContribution, ChunkContext chunkContext) {
+                        System.out.print("Package was driven up to Customer Address");
+                        return RepeatStatus.FINISHED;
+                    }
+                }).build();
+    }
+
+    @Bean
+    public Step deliverToCustomer() {
+        return stepBuilderFactory.get("delivertToCustomer")
+                .tasklet(new Tasklet() {
+                    @Override
+                    public RepeatStatus execute(StepContribution stepContribution, ChunkContext chunkContext) {
+                        System.out.print("Package was successfully delivered to the customer at "+ new Date());
+                        return RepeatStatus.FINISHED;
+                    }
+                }).build();
+    }
 
     public static void main(String[] args) {
         SpringApplication.run(BatchLearningApplication.class, args);
