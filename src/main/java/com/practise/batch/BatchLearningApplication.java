@@ -31,7 +31,9 @@ public class BatchLearningApplication {
         return jobBuilderFactory.get("packageJob")
                 .start(packageStep())
                 .next(driveToAddress())
-                .next(deliverToCustomer())
+                .on("FAILED").to(storePackage())
+                .from(driveToAddress()).on("*").to(deliverToCustomer())
+                .end()
                 .build();
     }
 
@@ -51,11 +53,31 @@ public class BatchLearningApplication {
 
     @Bean
     public Step driveToAddress() {
+        //Toggle this flag for failure scenarios
+        boolean GOT_LOST = true;
         return stepBuilderFactory.get("driveToAddressStep")
                 .tasklet(new Tasklet() {
                     @Override
                     public RepeatStatus execute(StepContribution stepContribution, ChunkContext chunkContext) {
+
+                        if(GOT_LOST){
+                            throw new RuntimeException("Got lost while locating the customer address");
+                        }
+
                         System.out.print("Package was driven up to Customer Address");
+                        return RepeatStatus.FINISHED;
+                    }
+
+                }).build();
+    }
+
+    @Bean
+    public Step storePackage() {
+        return stepBuilderFactory.get("storePackage")
+                .tasklet(new Tasklet() {
+                    @Override
+                    public RepeatStatus execute(StepContribution stepContribution, ChunkContext chunkContext) {
+                        System.out.print("Could not find customer address. Storing the package.");
                         return RepeatStatus.FINISHED;
                     }
                 }).build();
