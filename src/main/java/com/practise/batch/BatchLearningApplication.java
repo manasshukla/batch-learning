@@ -6,6 +6,7 @@ import org.springframework.batch.core.StepContribution;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.job.flow.JobExecutionDecider;
 import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.repeat.RepeatStatus;
@@ -27,12 +28,20 @@ public class BatchLearningApplication {
     public StepBuilderFactory stepBuilderFactory;
 
     @Bean
+    public JobExecutionDecider decider(){
+        return new CorrectIemDecider();
+    }
+
+
+    @Bean
     public Job createJob() {
         return jobBuilderFactory.get("packageJob")
                 .start(packageStep())
                 .next(driveToAddress())
                 .on("FAILED").to(storePackage())
-                .from(driveToAddress()).on("*").to(deliverToCustomer())
+                .from(driveToAddress()).on("*").to(decider())
+                        .on("CORRECT").to(thankCustomer())
+                .from(decider()).on("INCORRECT").to(giveRefund())
                 .end()
                 .build();
     }
@@ -54,7 +63,7 @@ public class BatchLearningApplication {
     @Bean
     public Step driveToAddress() {
         //Toggle this flag for failure scenarios
-        boolean GOT_LOST = true;
+        boolean GOT_LOST = false;
         return stepBuilderFactory.get("driveToAddressStep")
                 .tasklet(new Tasklet() {
                     @Override
@@ -85,11 +94,35 @@ public class BatchLearningApplication {
 
     @Bean
     public Step deliverToCustomer() {
-        return stepBuilderFactory.get("delivertToCustomer")
+        return stepBuilderFactory.get("deliverToCustomer")
                 .tasklet(new Tasklet() {
                     @Override
                     public RepeatStatus execute(StepContribution stepContribution, ChunkContext chunkContext) {
                         System.out.print("Package was successfully delivered to the customer at "+ new Date());
+                        return RepeatStatus.FINISHED;
+                    }
+                }).build();
+    }
+
+    @Bean
+    public Step thankCustomer() {
+        return stepBuilderFactory.get("thankCustomer")
+                .tasklet(new Tasklet() {
+                    @Override
+                    public RepeatStatus execute(StepContribution stepContribution, ChunkContext chunkContext) {
+                        System.out.print("The item was confirmed correct by the customer. Thanking the customer");
+                        return RepeatStatus.FINISHED;
+                    }
+                }).build();
+    }
+
+    @Bean
+    public Step giveRefund() {
+        return stepBuilderFactory.get("giveRefund")
+                .tasklet(new Tasklet() {
+                    @Override
+                    public RepeatStatus execute(StepContribution stepContribution, ChunkContext chunkContext) {
+                        System.out.print("The item was confirmed INCORRECT by the customer. Initiating REFUND");
                         return RepeatStatus.FINISHED;
                     }
                 }).build();
